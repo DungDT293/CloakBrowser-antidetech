@@ -1111,7 +1111,7 @@ FingerprintJS (`demo.fingerprint.com/playground`) checks multiple signals. Each 
 
 | Detection | Cause | Fix |
 |-----------|-------|-----|
-| **`nodriver` / bad bot** | Persistent profile without a Widevine CDM, or poor proxy IP reputation | Residential proxy; for **persistent** contexts add a Widevine CDM (Docker: `-e CLOAKBROWSER_FETCH_WIDEVINE=1`, otherwise sideload — see [Widevine / DRM](#widevine--drm)). Regular `launch()` doesn't need it. |
+| **`nodriver` / bad bot** | Stale binary/wrapper, missing current FPJS patches, or poor proxy IP reputation | Upgrade to the latest Pro binary (`148.0.7778.215.3+`), use a residential proxy with `geoip=True`, and use the config below. |
 | **Browser tampering** | Noise injection detected by ML | `--fingerprint-noise=false` |
 | **Browser tampering** (fonts) | Font metrics don't match the spoofed Windows platform | `--fingerprint-windows-font-metrics` (Chromium 148+ binary; requires [Windows fonts installed](#font-setup-on-linux)) |
 | **Virtual machine** | Screen dimensions don't match viewport | `--fingerprint-screen-width/height` matching viewport |
@@ -1144,7 +1144,7 @@ const browser = await launch({
 
 Requires a **Chromium 148+ binary** and **Windows fonts** installed (see [Font Setup on Linux](#font-setup-on-linux)); run with a **residential proxy** and `geoip=True`.
 
-**Persistent contexts** (`launch_persistent_context` / `launchPersistentContext`) need one extra piece beyond the `launch()` config above — a working **Widevine CDM** (Docker: `-e CLOAKBROWSER_FETCH_WIDEVINE=1`; otherwise sideload — see [Widevine / DRM](#widevine--drm)). Storage-quota tuning is unrelated to FingerprintJS here; it only affects detectors that infer incognito from quota, such as BrowserScan (see [storage quota](#launch_persistent_context)).
+**Persistent contexts** (`launch_persistent_context` / `launchPersistentContext`) use the same FPJS config on the latest Pro binary. Use a real `userDataDir`. Storage-quota tuning is unrelated to FingerprintJS here; it only affects detectors that infer incognito from quota, such as BrowserScan (see [storage quota](#launch_persistent_context)). For DRM/media playback, see [Widevine / DRM](#widevine--drm).
 
 ---
 
