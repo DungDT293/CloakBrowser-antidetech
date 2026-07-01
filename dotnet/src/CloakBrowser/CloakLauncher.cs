@@ -47,6 +47,7 @@ public static class CloakLauncher
                 Args = chromeArgs,
                 IgnoreDefaultArgs = Config.IgnoreDefaultArgs,
                 Proxy = proxyResolution.PlaywrightProxy,
+                Env = License.BuildLaunchEnv(options.LicenseKey),
             }).ConfigureAwait(false);
 
             var humanCfg = options.Humanize
@@ -150,6 +151,7 @@ public static class CloakLauncher
                 Args = chromeArgs,
                 IgnoreDefaultArgs = Config.IgnoreDefaultArgs,
                 Proxy = proxyResolution.PlaywrightProxy,
+                Env = License.BuildLaunchEnv(options.LicenseKey),
             };
             ApplyContextEmulation(ctxLaunchOptions, options);
 

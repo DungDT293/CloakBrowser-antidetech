@@ -11,6 +11,7 @@ import { maybeWarnWindowsFonts } from "./fonts.js";
 import { ensureBinary } from "./download.js";
 import { resolveProxyConfig } from "./proxy.js";
 import { maybeResolveGeoip, resolveWebrtcArgs } from "./geoip.js";
+import { buildLaunchEnv } from "./license.js";
 import { seedWidevineHint } from "./widevine.js";
 
 /** @internal Accept both timezone and timezoneId — either works, no warning. Exported for testing. */
@@ -115,13 +116,22 @@ export async function buildLaunchOptions(
   const args = buildArgs({ ...options, ...resolved, args: [...(resolvedArgs ?? []), ...proxyArgs] });
   maybeWarnWindowsFonts(args);
 
+  // Resolve env for the browser process (license key injection, if needed).
+  const { env: userEnv, ...restLaunchOptions } = options.launchOptions ?? {};
+  const launchEnv = buildLaunchEnv(
+    options.licenseKey,
+    userEnv as Record<string, string | undefined> | undefined,
+  );
+  const envResult = launchEnv !== undefined ? { env: launchEnv } : {};
+
   return {
     executablePath: binaryPath,
     headless: options.headless ?? true,
     args,
     ignoreDefaultArgs: IGNORE_DEFAULT_ARGS,
     ...(proxyOption ? { proxy: proxyOption } : {}),
-    ...options.launchOptions,
+    ...restLaunchOptions,
+    ...envResult,
   } as PlaywrightLaunchOptions;
 }
 
@@ -290,6 +300,14 @@ export async function launchPersistentContext(
 
   seedWidevineHint(options.userDataDir, binaryPath);
 
+  // Resolve env for the browser process (license key injection, if needed).
+  const { env: userEnv, ...restLaunchOptions } = options.launchOptions ?? {};
+  const launchEnv = buildLaunchEnv(
+    options.licenseKey,
+    userEnv as Record<string, string | undefined> | undefined,
+  );
+  const envResult = launchEnv !== undefined ? { env: launchEnv } : {};
+
   // locale and timezone are set via binary flags (--lang, --fingerprint-timezone)
   // — NOT via Playwright context kwargs which use detectable CDP emulation.
   const context = await chromium.launchPersistentContext(options.userDataDir, {
@@ -299,7 +317,8 @@ export async function launchPersistentContext(
     ignoreDefaultArgs: IGNORE_DEFAULT_ARGS,
     ...(proxyOption ? { proxy: proxyOption } : {}),
     ...buildContextOptions(options),
-    ...options.launchOptions,
+    ...restLaunchOptions,
+    ...envResult,
   });
 
   // Human-like behavioral patching

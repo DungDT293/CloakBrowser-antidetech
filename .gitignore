@@ -74,3 +74,5 @@ captures
 *.db
 .beads-credential-key
 .antigravitycli
+.plans
+.pi

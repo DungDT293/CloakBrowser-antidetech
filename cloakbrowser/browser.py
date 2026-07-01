@@ -27,6 +27,7 @@ from .config import (
     normalize_requested_version,
 )
 from .download import ensure_binary
+from .license import build_launch_env
 from .human.config import HumanConfigOverrides, HumanPreset
 from .widevine import seed_widevine_hint
 
@@ -208,12 +209,16 @@ def launch(
 
     logger.debug("Launching stealth Chromium (headless=%s, args=%d)", headless, len(chrome_args))
 
+    launch_env = build_launch_env(license_key, user_env=kwargs.pop("env", None))
+    env_kwargs = {} if launch_env is None else {"env": launch_env}
+
     pw = sync_playwright().start()
     browser = pw.chromium.launch(
         executable_path=binary_path,
         headless=headless,
         args=chrome_args,
         ignore_default_args=IGNORE_DEFAULT_ARGS,
+        **env_kwargs,
         **proxy_kwargs,
         **kwargs,
     )
@@ -309,12 +314,16 @@ async def launch_async(  # noqa: C901
 
     logger.debug("Launching stealth Chromium async (headless=%s, args=%d)", headless, len(chrome_args))
 
+    launch_env = build_launch_env(license_key, user_env=kwargs.pop("env", None))
+    env_kwargs = {} if launch_env is None else {"env": launch_env}
+
     pw = await async_playwright().start()
     browser = await pw.chromium.launch(
         executable_path=binary_path,
         headless=headless,
         args=chrome_args,
         ignore_default_args=IGNORE_DEFAULT_ARGS,
+        **env_kwargs,
         **proxy_kwargs,
         **kwargs,
     )
@@ -436,6 +445,12 @@ def launch_persistent_context(
         context_kwargs["color_scheme"] = color_scheme
     context_kwargs.update(kwargs)
     _drop_conflicting_viewport(context_kwargs, kwargs)
+
+    # Resolve env for the browser process (license key injection, if needed)
+    user_env = context_kwargs.pop("env", None)
+    launch_env = build_launch_env(license_key, user_env=user_env)
+    if launch_env is not None:
+        context_kwargs["env"] = launch_env
 
     seed_widevine_hint(user_data_dir, binary_path)
 
@@ -565,6 +580,12 @@ async def launch_persistent_context_async(
         context_kwargs["color_scheme"] = color_scheme
     context_kwargs.update(kwargs)
     _drop_conflicting_viewport(context_kwargs, kwargs)
+
+    # Resolve env for the browser process (license key injection, if needed)
+    user_env = context_kwargs.pop("env", None)
+    launch_env = build_launch_env(license_key, user_env=user_env)
+    if launch_env is not None:
+        context_kwargs["env"] = launch_env
 
     seed_widevine_hint(user_data_dir, binary_path)
 
@@ -1331,10 +1352,9 @@ def _resolve_proxy_config(
         # passwords at '=' and other special chars (#157).
         return {}, [f"--proxy-server={_normalize_socks_string_url(proxy)}"]
 
-    # HTTP/HTTPS with credentials on supported platforms: bypass Playwright's
-    # CDP auth interceptor, pass directly to Chrome via --proxy-server with
-    # inline creds. Chrome sends Proxy-Authorization preemptively, avoiding
-    # the 407 round-trip that breaks on some proxies (#182).
+    # HTTP/HTTPS with credentials on supported platforms: use Chrome's native
+    # proxy authentication path instead of Playwright's CDP auth interceptor
+    # (#182).
     requested_version = normalize_requested_version(browser_version)
     if _has_credentials(proxy) and _supports_http_proxy_inline_auth(requested_version):
         if isinstance(proxy, dict):
